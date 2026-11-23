@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Mon voyage</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #f4f6fa; color: #222; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 17px; margin: 0 0 8px 0; }
+  .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  input, select { width: 100%; box-sizing: border-box; padding: 10px; margin: 5px 0; border: 1px solid #ccd; border-radius: 8px; font-size: 16px; background: white; }
+  button { width: 100%; padding: 12px; background: #2f6fed; color: white; border: none; border-radius: 8px; font-size: 16px; margin-top: 6px; }
+  .ligne { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .ligne input[type=checkbox] { width: 22px; height: 22px; margin: 0; }
+  .ligne .info { flex: 1; }
+  .done { text-decoration: line-through; color: #999; }
+  .del { width: auto; background: #e5484d; padding: 6px 10px; margin: 0; }
+  .reste { font-size: 20px; font-weight: bold; }
+  .neg { color: #e5484d; }
+  .idee { display: inline-block; width: auto; background: #e8efff; color: #2f6fed; padding: 8px 12px; margin: 4px 4px 0 0; border-radius: 16px; font-size: 14px; }
+  .note { font-size: 13px; color: #777; }
+  .jour { font-weight: bold; margin-top: 6px; }
+  .serre { color: #e5484d; }
+  .confort { color: #1a9d55; }
+  .large { color: #2f6fed; }
+  .etape { border-left: 4px solid #2f6fed; padding-left: 10px; margin: 10px 0; }
+</style>
+</head>
+<body>
+<h1>Mon planificateur de voyage</h1>
+
+<div class="card">
+  <h2>Mon voyage</h2>
+  <input id="nbjours" type="number" placeholder="Nombre de jours voulus">
+  <input id="budget" type="number" placeholder="Budget total (euros)">
+  <div id="parjour" class="jour note">Renseigne le budget et le nombre de jours.</div>
+</div>
+
+<div class="card">
+  <h2>Étapes du voyage</h2>
+  <input id="edest" placeholder="Ville (ex : Hanoi, Bangkok...)">
+  <input id="epays" placeholder="Pays (facultatif)">
+  <input id="edep" type="date">
+  <input id="eret" type="date">
+  <button onclick="ajouterEtape()">Ajouter cette étape</button>
+  <div id="etapes"></div>
+</div>
+
+<div class="card">
+  <h2>Idées d'activités</h2>
+  <select id="choixEtape" onchange="afficherIdees()"></select>
+  <div id="idees" class="note">Ajoute une étape pour voir des idées.</div>
+</div>
+
+<div class="card">
+  <h2>Ajouter une activité</h2>
+  <select id="actEtape"></select>
+  <input id="nom" placeholder="Nom de l'activité">
+  <input id="jour" type="date">
+  <input id="prix" type="number" placeholder="Prix">
+  <button onclick="ajouterActivite()">Ajouter</button>
+  <div id="liste"></div>
+</div>
+
+<div class="card">
+  <h2>Budget par catégorie</h2>
+  <input id="bcat" placeholder="Nom de la dépense (ex : vol Paris-Hanoi)">
+  <select id="ccat">
+    <option>Transport</option>
+    <option>Logement</option>
+    <option>Nourriture</option>
+    <option>Visas et assurance</option>
+    <option>Autre</option>
+  </select>
+  <input id="mcat" type="number" placeholder="Montant">
+  <button onclick="ajouterDepense()">Ajouter</button>
+  <div id="depenses"></div>
+  <div id="totauxcat" class="note"></div>
+</div>
+
+<div class="card">
+  <h2>Bilan du budget</h2>
+  <div>Dépensé : <span id="depense">0</span></div>
+  <div>Il reste : <span id="reste" class="reste">0</span></div>
+</div>
+
+<div class="card">
+  <h2>À emporter et à préparer</h2>
+  <input id="nomchoix" placeholder="Ajouter un élément">
+  <button onclick="ajouterChoix()">Ajouter</button>
+  <div id="checklist"></div>
+</div>
+
+<script>
+  const IDEES = {
+    "hanoi": ["Vieux quartier à pied", "Lac Hoan Kiem", "Mausolée de Hô Chi Minh", "Temple de la Littérature", "Spectacle de marionnettes sur l'eau", "Street food tour", "Excursion baie d'Ha Long"],
+    "ho chi minh": ["Marché Ben Thanh", "Musée des vestiges de la guerre", "Tunnels de Cu Chi", "Palais de la Réunification", "Cathédrale Notre-Dame", "Delta du Mékong", "Street food tour"],
+    "da nang": ["Ponts d'Or de Ba Na Hills", "Plage de My Khe", "Montagnes de Marbre", "Pont du Dragon le soir", "Péninsule de Son Tra"],
+    "hoi an": ["Vieille ville et lanternes", "Cours de cuisine", "Plage d'An Bang", "Tailleur sur mesure", "Balade à vélo dans les rizières", "Pont japonais"],
+    "hue": ["Cité impériale", "Tombeau de Khai Dinh", "Pagode de la Dame Céleste", "Balade en bateau sur la rivière des Parfums", "Cuisine impériale"],
+    "nha trang": ["Plages et snorkeling", "Tours Cham de Po Nagar", "Bains de boue", "Excursion en bateau aux îles", "Pagode Long Son"],
+    "bangkok": ["Grand Palais", "Wat Pho et Wat Arun", "Marché de Chatuchak", "Tour en bateau sur les klongs", "Street food à Yaowarat", "Jim Thompson House", "Rooftop au coucher du soleil"],
+    "chiang mai": ["Vieille ville et temples", "Doi Suthep", "Sanctuaire d'éléphants éthique", "Marché de nuit", "Cours de cuisine thaïe", "Randonnée à Doi Inthanon"],
+    "phuket": ["Plage de Kata et Karon", "Vieille ville de Phuket", "Grand Bouddha", "Excursion aux îles Phi Phi", "Baie de Phang Nga", "Marché du dimanche"],
+    "koh phi phi": ["Point de vue de Viewpoint", "Maya Bay en bateau", "Snorkeling à Bamboo Island", "Plage de Long Beach", "Kayak au coucher du soleil", "Plongée avec tuba"],
+    "krabi": ["Plage de Railay", "Excursion aux 4 îles en bateau", "Tiger Cave Temple", "Escalade", "Sources chaudes de Klong Thom"],
+    "ayutthaya": ["Ruines des temples à vélo", "Wat Mahathat et la tête de Bouddha", "Marché flottant", "Wat Chaiwatthanaram au coucher du soleil"],
+    "kuala lumpur": ["Tours Petronas", "Batu Caves", "Jalan Alor street food", "Bukit Bintang", "Quartier de Chinatown", "Jardin des oiseaux"],
+    "penang": ["Georgetown et street art", "Temple Kek Lok Si", "Penang Hill", "Street food hawker", "Clan Jetties", "Plage de Batu Ferringhi"],
+    "malacca": ["Jonker Street", "Stadthuys et place rouge", "Ruines de Saint Paul", "Croisière sur la rivière", "Cuisine nyonya"],
+    "langkawi": ["Téléphérique et Sky Bridge", "Plage de Cenang", "Excursion mangrove", "Îles et snorkeling", "Coucher de soleil à Tanjung Rhu"]
+  };
+
+  const CHECK_DEFAUT = ["Passeport valable 6 mois", "Visa ou e-visa", "Assurance voyage", "Billets d'avion", "Réservations d'hôtel", "Carte bancaire sans frais à l'étranger", "Adaptateur de prise", "Médicaments personnels", "Crème solaire et anti-moustiques", "Chargeur et batterie externe"];
+
+  function normaliser(t) {
+    return (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  }
+
+  let data = JSON.parse(localStorage.getItem('voyage2') || '{}');
+  data = Object.assign({ nbjours: 0, budget: 0, etapes: [], acts: [], depenses: [], check: null }, data);
+  if (!data.check) data.check = CHECK_DEFAUT.map(n => ({ nom: n, fait: false }));
+
+  function sauver() { localStorage.setItem('voyage2', JSON.stringify(data)); }
+
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function ajouterEtape() {
+    const ville = document.getElementById('edest').value.trim();
+    if (!ville) return;
+    data.etapes.push({
+      ville: ville,
+      pays: document.getElementById('epays').value.trim(),
+      dep: document.getElementById('edep').value,
+      ret: document.getElementById('eret').value
+    });
+    ['edest', 'epays', 'edep', 'eret'].forEach(id => document.getElementById(id).value = '');
+    afficher();
+  }
+
+  function supprimerEtape(i) {
+    data.etapes.splice(i, 1);
+    data.acts.forEach(a => { if (a.etape === i) a.etape = -1; else if (a.etape > i) a.etape--; });
+    afficher();
+  }
+
+  function ajouterActivite() {
+    const nom = document.getElementById('nom').value.trim();
+    if (!nom) return;
+    data.acts.push({
+      nom: nom,
+      etape: parseInt(document.getElementById('actEtape').value),
+      jour: document.getElementById('jour').value,
+      prix: parseFloat(document.getElementById('prix').value) || 0,
+      fait: false
+    });
+    document.getElementById('nom').value = '';
+    document.getElementById('prix').value = '';
+    afficher();
+  }
+
+  function choisirIdee(nom) {
+    document.getElementById('nom').value = nom;
+    const e = document.getElementById('choixEtape').value;
+    if (e !== '') document.getElementById('actEtape').value = e;
+    document.getElementById('prix').focus();
+  }
+
+  function cocherAct(i) { data.acts[i].fait = !data.acts[i].fait; afficher(); }
+  function supprimerAct(i) { data.acts.splice(i, 1); afficher(); }
+
+  function ajouterDepense() {
+    const nom = document.getElementById('bcat').value.trim();
+    const montant = parseFloat(document.getElementById('mcat').value) || 0;
+    if (!nom || !montant) return;
+    data.depenses.push({ nom: nom, cat: document.getElementById('ccat').value, montant: montant });
+    document.getElementById('bcat').value = '';
+    document.getElementById('mcat').value = '';
+    afficher();
+  }
+
+  function supprimerDepense(i) { data.depenses.splice(i, 1); afficher(); }
+
+  function ajouterChoix() {
+    const n = document.getElementById('nomchoix').value.trim();
+    if (!n) return;
+    data.check.push({ nom: n, fait: false });
+    document.getElementById('nomchoix').value = '';
+    afficher();
+  }
+
+  function cocherChoix(i) { data.check[i].fait = !data.check[i].fait; afficher(); }
+  function supprimerChoix(i) { data.check.splice(i, 1); afficher(); }
+
+  function afficherIdees() {
+    const sel = document.getElementById('choixEtape');
+    const box = document.getElementById('idees');
+    const e = data.etapes[parseInt(sel.value)];
+    if (!e) { box.className = 'note'; box.textContent = 'Ajoute une étape pour voir des idées.'; return; }
+    const v = normaliser(e.ville);
+    const cle = Object.keys(IDEES).find(k => v.includes(k) || k.includes(v));
+    if (!cle) { box.className = 'note'; box.textContent = "Pas d'idées pour cette ville pour l'instant."; return; }
+    box.className = '';
+    box.innerHTML = IDEES[cle].map((x, n) => '<button class="idee" onclick="choisirIdee(IDEES[\'' + cle + '\'][' + n + '])">' + esc(x) + '</button>').join('');
+  }
+
+  function joursEtape(e) {
+    if (!e.dep || !e.ret) return 0;
+    const d = (new Date(e.ret) - new Date(e.dep)) / 86400000;
+    return d >= 0 ? Math.round(d) + 1 : 0;
+  }
+
+  function afficherBudgetJour() {
+    const box = document.getElementById('parjour');
+    let nb = data.nbjours;
+    if (!nb) nb = data.etapes.reduce((s, e) => s + joursEtape(e), 0);
+    if (!data.budget || !nb) { box.className = 'jour note'; box.textContent = 'Renseigne le budget et le nombre de jours.'; return; }
+    const pj = Math.round(data.budget / nb);
+    let txt = 'Budget par jour : ' + pj + ' euros (' + nb + ' jours). ';
+    let cl = 'jour ';
+    if (pj < 35) { txt += 'Plutôt serré.'; cl += 'serre'; }
+    else if (pj <= 80) { txt += 'Confortable.'; cl += 'confort'; }
+    else { txt += 'Large.'; cl += 'large'; }
+    box.className = cl;
+    box.textContent = txt;
+  }
+
+  function afficher() {
+    data.nbjours = parseInt(document.getElementById('nbjours').value) || 0;
+    data.budget = parseFloat(document.getElementById('budget').value) || 0;
+
+    document.getElementById('etapes').innerHTML = data.etapes.map((e, i) =>
+      '<div class="ligne etape"><div class="info"><strong>' + (i + 1) + '. ' + esc(e.ville) + '</strong>' + (e.pays ? ' (' + esc(e.pays) + ')' : '') +
+      '<br><small>' + (e.dep || '?') + ' au ' + (e.ret || '?') + (joursEtape(e) ? ' - ' + joursEtape(e) + ' jours' : '') + '</small></div>' +
+      '<button class="del" onclick="supprimerEtape(' + i + ')">X</button></div>'
+    ).join('');
+
+    const opts = data.etapes.map((e, i) => '<option value="' + i + '">' + esc(e.ville) + '</option>').join('');
+    const s1 = document.getElementById('choixEtape');
+    const s2 = document.getElementById('actEtape');
+    const v1 = s1.value, v2 = s2.value;
+    s1.innerHTML = opts;
+    s2.innerHTML = '<option value="-1">Sans étape</option>' + opts;
+    if (v1 !== '' && data.etapes[parseInt(v1)]) s1.value = v1;
+    if (v2 !== '' && (v2 === '-1' || data.etapes[parseInt(v2)])) s2.value = v2;
+
+    document.getElementById('liste').innerHTML = data.acts.map((a, i) => ({ a: a, i: i }))
+      .sort((x, y) => (x.a.jour || '').localeCompare(y.a.jour || ''))
+      .map(o => {
+        const e = data.etapes[o.a.etape];
+        return '<div class="ligne"><input type="checkbox" ' + (o.a.fait ? 'checked' : '') + ' onchange="cocherAct(' + o.i + ')">' +
+          '<div class="info ' + (o.a.fait ? 'done' : '') + '">' + esc(o.a.nom) + '<br><small>' + (e ? esc(e.ville) : 'sans étape') + ' - ' + (o.a.jour || 'sans date') + ' - ' + o.a.prix + '</small></div>' +
+          '<button class="del" onclick="supprimerAct(' + o.i + ')">X</button></div>';
+      }).join('');
+
+    document.getElementById('depenses').innerHTML = data.depenses.map((d, i) =>
+      '<div class="ligne"><div class="info">' + esc(d.nom) + '<br><small>' + esc(d.cat) + ' - ' + d.montant + '</small></div>' +
+      '<button class="del" onclick="supprimerDepense(' + i + ')">X</button></div>'
+    ).join('');
+
+    const parCat = {};
+    data.depenses.forEach(d => { parCat[d.cat] = (parCat[d.cat] || 0) + d.montant; });
+    document.getElementById('totauxcat').innerHTML = Object.keys(parCat).map(c => esc(c) + ' : ' + parCat[c]).join(' | ');
+
+    document.getElementById('checklist').innerHTML = data.check.map((c, i) =>
+      '<div class="ligne"><input type="checkbox" ' + (c.fait ? 'checked' : '') + ' onchange="cocherChoix(' + i + ')">' +
+      '<div class="info ' + (c.fait ? 'done' : '') + '">' + esc(c.nom) + '</div>' +
+      '<button class="del" onclick="supprimerChoix(' + i + ')">X</button></div>'
+    ).join('');
+
+    const totalAct = data.acts.reduce((s, a) => s + a.prix, 0);
+    const totalDep = data.depenses.reduce((s, d) => s + d.montant, 0);
+    const total = totalAct + totalDep;
+    const reste = data.budget - total;
+    document.getElementById('depense').textContent = total;
+    const r = document.getElementById('reste');
+    r.textContent = reste;
+    r.className = 'reste' + (reste < 0 ? ' neg' : '');
+
+    afficherBudgetJour();
+    afficherIdees();
+    sauver();
+  }
+
+  document.getElementById('nbjours').value = data.nbjours || '';
+  document.getElementById('budget').value = data.budget || '';
+  ['nbjours', 'budget'].forEach(id => document.getElementById(id).addEventListener('input', afficher));
+  afficher();
+</script>
+</body>
+</html>
